@@ -1,4 +1,4 @@
-const API_KEY = "415b982a16a69988679777b2feaff166";
+const API_KEY = "7fee801b736cbb0ff858e3b35f8476cd";
 
 export async function fetchCityCoordinates(city) {
   const res = await fetch(
