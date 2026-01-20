@@ -1,19 +1,72 @@
-let cityInput = document.getElementById("city_input");
-let searchBtn = document.getElementById("searchBtn");
-let locationBtn = document.getElementById("locationBtn");
+/* =========================
+   MODULE IMPORTS
+   ========================= */
+import { fetchCityCoordinates } from "./api.js";
+import { savePreferences, loadPreferences } from "./storage.js";
 
-api_key="415b982a16a69988679777b2feaff166",
-currentweatherCard = document.querySelectorAll('.weather-left .card')[0],
-fiveDaysForecastCard = document.querySelector('.day-forecast'),
-aqiCard = document.querySelectorAll('.highlights .card')[0],
-sunriseCard = document.querySelectorAll('.highlights .card')[1],
-humidityVal=document.getElementById("humidityVal"),
-pressureVal=document.getElementById("pressureVal"),
-visibilityVal=document.getElementById("visibilityVal"),
-windSpeedVal=document.getElementById("windSpeedVal"),
-feelsVal=document.getElementById("feelsVal"),
-hourlyForecastCard = document.querySelector('.hourly-forecast'),
-aqiList = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
+/* =========================
+   DOM ELEMENTS
+   ========================= */
+const cityInput = document.getElementById("city_input");
+const searchBtn = document.getElementById("searchBtn");
+const locationBtn = document.getElementById("locationBtn");
+
+/* =========================
+   EXISTING GLOBALS (KEEP)
+   ========================= */
+let api_key = "415b982a16a69988679777b2feaff166";
+
+/* =========================
+   LOADING STATE
+   ========================= */
+const loader = document.createElement("div");
+loader.innerText = "Loading...";
+loader.style.textAlign = "center";
+loader.style.display = "none";
+document.body.prepend(loader);
+
+function toggleLoader(show) {
+  loader.style.display = show ? "block" : "none";
+}
+
+/* =========================
+   DEBOUNCE
+   ========================= */
+function debounce(fn, delay = 500) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+let currentweatherCard,
+    fiveDaysForecastCard,
+    aqiCard,
+    sunriseCard,
+    humidityVal,
+    pressureVal,
+    visibilityVal,
+    windSpeedVal,
+    feelsVal,
+    hourlyForecastCard;
+
+const aqiList = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
+
+function initWeatherElements() {
+  currentweatherCard = document.querySelectorAll('.weather-left .card')[0];
+  fiveDaysForecastCard = document.querySelector('.day-forecast');
+  aqiCard = document.querySelectorAll('.highlights .card')[0];
+  sunriseCard = document.querySelectorAll('.highlights .card')[1];
+
+  humidityVal = document.getElementById("humidityVal");
+  pressureVal = document.getElementById("pressureVal");
+  visibilityVal = document.getElementById("visibilityVal");
+  windSpeedVal = document.getElementById("windSpeedVal");
+  feelsVal = document.getElementById("feelsVal");
+
+  hourlyForecastCard = document.querySelector('.hourly-forecast');
+}
+
 
 function getweatherDetails(name,lat,lon,country,state){
     let FORECAST_API_URL =`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${api_key}`,
@@ -91,8 +144,9 @@ function getweatherDetails(name,lat,lon,country,state){
           {timezone, visibility} = data,
           {humidity, pressure, feels_like} = data.main,
           {speed} = data.wind;
-          sRiseTime = moment.utc(sunrise, 'X').add(timezone, 'seconds').format('hh:mm A'),
-          sSetTime = moment.utc(sunset, 'X').add(timezone, 'seconds').format('hh:mm A');
+          let sRiseTime = moment.utc(sunrise, 'X').add(timezone, 'seconds').format('hh:mm A');
+          let sSetTime  = moment.utc(sunset, 'X').add(timezone, 'seconds').format('hh:mm A');
+
           sunriseCard.innerHTML=`
           <div class="card-head">
               <p>Sunrise & Sunset</p>
@@ -130,7 +184,7 @@ function getweatherDetails(name,lat,lon,country,state){
   fetch(FORECAST_API_URL).then(res => res.json()).then(data => {
     let hourlyForechast = data.list;
     hourlyForecastCard.innerHTML = '';
-    for (i = 0; i < 7; i++) {
+    for (let i = 0; i < 7; i++) {
       let hrForecastDate = new Date(hourlyForechast[i].dt_txt);
       let hr = hrForecastDate.getHours();
       let a ='PM';
@@ -153,7 +207,7 @@ function getweatherDetails(name,lat,lon,country,state){
       }
     });
         fiveDaysForecastCard.innerHTML = '';
-        for (i = 1; i < fiveDaysForecast.length; i++) {
+        for (let i = 1; i < fiveDaysForecast.length; i++) {
           let date = new Date(fiveDaysForecast[i].dt_txt);
           fiveDaysForecastCard.innerHTML += `
           <div class="forecast-item">
@@ -170,80 +224,100 @@ function getweatherDetails(name,lat,lon,country,state){
     });
 }
 
-function getCityCorredinates(){
-    let cityName = cityInput.value.trim();
-    saveLastCity(cityName);
-    cityInput.value = '';
-    if(!cityName)return;
-    let GEOCODING_API_URL =`https://api.openweathermap.org/geo/1.0/direct?q=${cityName},&limit=1&appid=${api_key}`;
-    fetch(GEOCODING_API_URL).then(res => res.json()).then(data => {
-        let {name,lat,lon,country,state}= data[0];
-        getweatherDetails(name,lat,lon,country,state);
-    }).catch(()=>{
-        alert(`Failed to fetch coordinates of ${cityName}`);
-    });
-}
-
-function gerUserCoordinates(){
-        navigator.geolocation.getCurrentPosition(position => {
-            let {latitude, longitude} = position.coords;
-            let REVERSE_GEOCODING_URL =`https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${api_key}`;
-            fetch(REVERSE_GEOCODING_URL).then(res => res.json()).then(data => {
-                let {name,country,state}= data[0];
-                getweatherDetails(name,latitude,longitude,country,state);
-            }).catch(()=>{
-                alert(`Failed to fetch coordinates of your location`);
-            });
-        }, errror => {
-            if (errror.code === errror.PERMISSION_DENIED) {
-                alert('You denied the request for Geolocation.');
-            }
-        });
-}
-
-searchBtn.addEventListener("click", async () => {
-  let cityName = cityInput.value.trim();
-  if (!cityName) return;
-
-  saveLastCity(cityName);
-
-  try {
-    const data = await getCityCoordinatesAsync(cityName);
-    let { name, lat, lon, country, state } = data[0];
-    getweatherDetails(name, lat, lon, country, state);
-    cityInput.value = '';
-  } catch {
-    alert(`Failed to fetch coordinates of ${cityName}`);
+function gerUserCoordinates() {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser");
+    return;
   }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords;
+
+      try {
+        toggleLoader(true);
+
+        initWeatherElements();
+
+        getweatherDetails(
+          "Your Location",
+          latitude,
+          longitude,
+          "",
+          ""
+        );
+
+        savePreferences({
+          lastCity: "Your Location",
+          units: "metric"
+        });
+      } catch (err) {
+        alert("Failed to fetch location weather");
+      } finally {
+        toggleLoader(false);
+      }
+    },
+    () => {
+      alert("Location access denied");
+    }
+  );
+}
+
+/* =========================
+   MAIN CITY LOADER
+   ========================= */
+async function loadCity(cityName) {
+  try {
+    toggleLoader(true);
+
+    initWeatherElements();
+    const data = await fetchCityCoordinates(cityName);
+    const { name, lat, lon, country, state } = data[0];
+
+    // 🔥 YOUR ORIGINAL UI FUNCTION
+    getweatherDetails(name, lat, lon, country, state);
+
+    savePreferences({
+      lastCity: name,
+      units: "metric"
+    });
+
+    cityInput.value = "";
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    toggleLoader(false);
+  }
+}
+
+/* =========================
+   EVENTS
+   ========================= */
+searchBtn.addEventListener("click", () => {
+  if (!cityInput.value.trim()) return;
+  loadCity(cityInput.value.trim());
 });
 
-cityInput.addEventListener("keyup", e => e.key === "Enter" && getCityCorredinates());
+cityInput.addEventListener(
+  "input",
+  debounce(e => {
+    if (e.target.value.trim().length > 2) {
+      loadCity(e.target.value.trim());
+    }
+  })
+);
+
+locationBtn.addEventListener("click", gerUserCoordinates);
+
+/* =========================
+   LOAD LAST CITY
+   ========================= */
 window.addEventListener("load", () => {
-  const lastCity = loadLastCity();
-  if (lastCity) {
-    cityInput.value = lastCity;
-    getCityCorredinates();
+  const prefs = loadPreferences();
+  if (prefs.lastCity) {
+    cityInput.value = prefs.lastCity;
+    loadCity(prefs.lastCity);
   } else {
     gerUserCoordinates();
   }
 });
-
-locationBtn.addEventListener("click", gerUserCoordinates);
-
-function saveLastCity(city) {
-  localStorage.setItem("lastCity", city);
-}
-
-function loadLastCity() {
-  return localStorage.getItem("lastCity");
-}
-
-async function getCityCoordinatesAsync(cityName) {
-  const GEOCODING_API_URL =
-    `https://api.openweathermap.org/geo/1.0/direct?q=${cityName}&limit=1&appid=${api_key}`;
-
-  const res = await fetch(GEOCODING_API_URL);
-  if (!res.ok) throw new Error("Failed to fetch city coordinates");
-
-  return res.json();
-}
